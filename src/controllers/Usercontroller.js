@@ -37,7 +37,7 @@ const Signup = async (req, res) => {
   const { firstname, lastName, phonenumber, Email, password, favouritemeal } = req.body;
 
   try {
-    // Check if user exists
+    // Check if user already exists
     const UserExist = await Usermodel.findOne({ Email });
     if (UserExist) {
       return res.status(400).json({ message: "User already exists" });
@@ -57,8 +57,12 @@ const Signup = async (req, res) => {
       message: "User registered successfully",
       user: createNewUser,
     });
+
   } catch (error) {
-    res.status(500).json({ message: "Failed to create user", error: error.message });
+    res.status(500).json({
+      message: "Failed to create user",
+      error: error.message,
+    });
   }
 };
 
