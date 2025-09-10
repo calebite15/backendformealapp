@@ -1,38 +1,6 @@
 const Usermodel = require("../models/Usermodel");
 const bcrypt = require("bcryptjs");
-// const Signup = async (req, res) => {
-//   const { firstname, lastName, phonenumber, Email, password, favouritemeal } =
-//     req.body;
-//   try {
-//     ///check is task exists in data base
-//     const UserExist = await Usermodel.findOne({ Email });
-//     if (UserExist) {
-//       res.status(405).json({
-//         message: "USER already exists",
-//       });
-//     }
-//     ///to create new task
-//     const createNewUser = await Usermodel.create({
-//       firstname,
-//       lastName,
-//       phonenumber,
-//       Email,
-//       password,
-//       favouritemeal,
-//     });
-//     const taskResult = await createNewUser.save();
-//     res.status(200).json({
-//       firstname: taskResult.firstname,
-//       lastName: taskResult.lastName,
-//       Email: taskResult.Email,
-//       phonenumber: taskResult.phonenumber,
-//       favouritemeal: taskResult.favouritemeal,
-//         password: taskResult.password,
-//     });
-//   } catch (error) {
-//     res.status(404).json({ message: "successful" });
-//   }
-// };
+// SIGNUP USER
 const Signup = async (req, res) => {
   const { firstname, lastName, phonenumber, Email, password, favouritemeal } = req.body;
 
@@ -44,7 +12,7 @@ const Signup = async (req, res) => {
     }
 
     // Create new user
-    const createNewUser = await Usermodel.create({
+    const createNewUser = new Usermodel({
       firstname,
       lastName,
       phonenumber,
@@ -53,11 +21,12 @@ const Signup = async (req, res) => {
       favouritemeal,
     });
 
+    const savedUser = await createNewUser.save();
+
     res.status(201).json({
       message: "User registered successfully",
-      user: createNewUser,
+      user: savedUser,
     });
-
   } catch (error) {
     res.status(500).json({
       message: "Failed to create user",
@@ -66,42 +35,30 @@ const Signup = async (req, res) => {
   }
 };
 
-const LoginUser = async (req, res) => {
+// LOGIN USER (SIMPLE)
+const  LoginUser = async (req, res) => {
   const { Email, password } = req.body;
+
   try {
-    // === To check if task exist in the DB under task collection ===
-    const userExist = await Usermodel.findOne({ Email });
-    if (!userExist) {
-      return res.status(405).json({
-        message: "user not found",
-      });
+    // Check if user exists
+    const user = await Usermodel.findOne({ Email });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
-    const validPassword = await bcrypt.compare(password, userExist.password);
-    if (!validPassword) {
-      return res.status(405).json({
-        message: "invalid password",
-      });
+    // Check password
+    if (user.password !== password) {
+      return res.status(400).json({ message: "Incorrect password" });
     }
 
-    // === To return data if successful ===
-    // res.status(200).json(taskResult)
-
-    // ** Alternative to the above **
     res.status(200).json({
-      message: "Log in successful",
-      _id: userExist._id,
-      firstname: userExist.firstname,
-      lastName: userExist.lastName,
-      phonenumber: userExist.phonenumber,
-      Email: userExist.Email,
-      favouritemeal: userExist.favouritemeal,
-      Isadmin: userExist.Isadmin,
-      role: userExist.role,
+      message: "Login successful",
+      user,
     });
   } catch (error) {
-    res.status(404).json({
-      message: "login error",
+    res.status(500).json({
+      message: "Login failed",
+      error: error.message,
     });
   }
 };

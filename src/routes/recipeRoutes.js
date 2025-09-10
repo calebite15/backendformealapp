@@ -8,7 +8,7 @@ const {
 } = require("../controllers/Recipecontroller");
 const router = express.Router();
 router.get("/", GetAllRecipe);
-router.get("/api/:id", GetSingleRecipe);
+router.get("/:id", GetSingleRecipe);
 
 router.post("/", createRecipe);
 router.put("/:id", UpdateRecipe);
