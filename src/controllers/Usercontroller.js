@@ -27,6 +27,7 @@ const Signup = async (req, res) => {
       Email: taskResult.Email,
       phonenumber: taskResult.phonenumber,
       favouritemeal: taskResult.favouritemeal,
+        password: taskResult.password,
     });
   } catch (error) {
     res.status(404).json({ message: "failed to fecth data" });
