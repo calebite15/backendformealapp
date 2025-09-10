@@ -7,10 +7,10 @@ const {
   DeleteRecipe,
 } = require("../controllers/Recipecontroller");
 const router = express.Router();
-router.get("/", GetAllRecipe);
-router.get("/:id", GetSingleRecipe);
+router.get("/api/", GetAllRecipe);
+router.get("/api/:id", GetSingleRecipe);
 
-router.post("/", createRecipe);
-router.put("/:id", UpdateRecipe);
-router.delete("/:id", DeleteRecipe);
+router.post("/api/", createRecipe);
+router.put("/api/:id", UpdateRecipe);
+router.delete("/apai/:id", DeleteRecipe);
 module.exports = router;
