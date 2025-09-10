@@ -31,7 +31,14 @@ const Recipeschema = mongoose.Schema(
       type: String,
       require: true,
     },
-    // mealIMG: [""],
+       images: [
+      {
+        img: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
   },
   {
     timestamp: true,

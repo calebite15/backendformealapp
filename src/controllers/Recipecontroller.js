@@ -1,4 +1,5 @@
 const Recipemodel = require("../models/Recipe");
+const cloudinary = require("../Utils/Cloudinary");
 ///fecth all data
 const GetAllRecipe = async (req, res) => {
   try {
@@ -76,7 +77,7 @@ const DeleteRecipe = async (req, res) => {
 };
 ///post data
 const createRecipe = async (req, res) => {
-  const { title, ingredients, instructions, cookingTime, description } =
+  const { title, ingredients,images, instructions, cookingTime, description } =
     req.body;
   try {
     ///check is task exists in data base
@@ -85,15 +86,40 @@ const createRecipe = async (req, res) => {
       res.status(405).json({
         message: "alredy created",
       });
+      
     }
-
+    
     ///to create new
-    const createNewrecipe = await Recipemodel.create({
+    // const createNewrecipe = await Recipemodel.create({
+    //   title,
+    //   description,
+    //   ingredients,
+    //   instructions,
+    //   cookingTime,
+    //   images,
+    // });
+
+    //to cloud first
+    const uploadedImages = await Promise.all(
+      images.map(async (image) => {
+        const result = await cloudinary.uploader.upload(image, {
+          folder: "products", // Optional: store images in a specific folder in Cloudinary
+
+          resource_type: "image",
+        });
+
+        return {
+          img: result.secure_url,
+        };
+      })
+    );
+     const createNewrecipe = await Recipemodel.create({
       title,
       description,
       ingredients,
       instructions,
       cookingTime,
+      images: uploadedImages,
     });
     ///saving ecerything is the reg.boby to the data base
     const taskResult = await createNewrecipe.save();
