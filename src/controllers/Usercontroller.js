@@ -1,5 +1,6 @@
 const Usermodel = require("../models/Usermodel");
 const bcrypt = require("bcryptjs");
+
 // SIGNUP USER
 const Signup = async (req, res) => {
   const { firstname, lastName, phonenumber, Email, password, favouritemeal } = req.body;
@@ -11,7 +12,7 @@ const Signup = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Create new user
+    // Create new user (password will be hashed in schema pre-save hook)
     const createNewUser = new Usermodel({
       firstname,
       lastName,
@@ -25,7 +26,14 @@ const Signup = async (req, res) => {
 
     res.status(201).json({
       message: "User registered successfully",
-      user: savedUser,
+      user: {
+        id: savedUser._id,
+        firstname: savedUser.firstname,
+        lastName: savedUser.lastName,
+        Email: savedUser.Email,
+        phonenumber: savedUser.phonenumber,
+        favouritemeal: savedUser.favouritemeal,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -35,8 +43,8 @@ const Signup = async (req, res) => {
   }
 };
 
-// LOGIN USER (SIMPLE)
-const  LoginUser = async (req, res) => {
+// LOGIN USER (with bcrypt)
+const LoginUser = async (req, res) => {
   const { Email, password } = req.body;
 
   try {
@@ -46,14 +54,22 @@ const  LoginUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check password
-    if (user.password !== password) {
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
       return res.status(400).json({ message: "Incorrect password" });
     }
 
     res.status(200).json({
       message: "Login successful",
-      user,
+      user: {
+        id: user._id,
+        firstname: user.firstname,
+        lastName: user.lastName,
+        Email: user.Email,
+        phonenumber: user.phonenumber,
+        favouritemeal: user.favouritemeal,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -62,4 +78,5 @@ const  LoginUser = async (req, res) => {
     });
   }
 };
+
 module.exports = { Signup, LoginUser };
