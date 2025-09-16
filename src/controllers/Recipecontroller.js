@@ -295,52 +295,55 @@ const cloudinary = require("../Utils/Cloudinary");
 
 
 // ===================== CREATE RECIPE =====================
+// Create data
 const createRecipe = async (req, res) => {
-  try {
-    const { title, description, ingredients, instructions, cookingTime } = req.body;
+  const { title, ingredients, images, instructions, cookingTime, description } = req.body;
 
-    // check if recipe already exists
-    const existingRecipe = await Recipemodel.findOne({ title });
-    if (existingRecipe) {
-      return res.status(400).json({ message: "Recipe already exists" });
+  try {
+    // check duplicate
+    const projectExist = await Recipemodel.findOne({ title });
+    if (projectExist) {
+      return res.status(400).json({
+        message: "already created",
+      });
     }
 
-    // upload images if provided
+    // 🟢 ensure ingredients is always an array
+    let ingredientsArray = [];
+    if (Array.isArray(ingredients)) {
+      ingredientsArray = ingredients;
+    } else if (typeof ingredients === "string") {
+      ingredientsArray = ingredients.split(",").map((item) => item.trim());
+    }
+
+    // 🟢 ensure images is optional
     let uploadedImages = [];
-    if (req.files && req.files.length > 0) {
+    if (images && Array.isArray(images)) {
       uploadedImages = await Promise.all(
-        req.files.map(
-          (file) =>
-            new Promise((resolve, reject) => {
-              const stream = cloudinary.uploader.upload_stream(
-                { folder: "recipes" },
-                (error, result) => {
-                  if (error) reject(error);
-                  else resolve({ img: result.secure_url });
-                }
-              );
-              stream.end(file.buffer);
-            })
-        )
+        images.map(async (image) => {
+          const result = await cloudinary.uploader.upload(image, {
+            folder: "products",
+            resource_type: "image",
+          });
+          return { img: result.secure_url };
+        })
       );
     }
 
-    // save new recipe
-    const newRecipe = new Recipemodel({
+    // save recipe
+    const createNewrecipe = await Recipemodel.create({
       title,
       description,
-      ingredients,
+      ingredients: ingredientsArray,
       instructions,
       cookingTime,
       images: uploadedImages,
     });
 
-    await newRecipe.save();
-
-    res.status(201).json(newRecipe);
+    res.status(201).json(createNewrecipe);
   } catch (error) {
     res.status(500).json({
-      message: "Failed to create recipe",
+      message: "failed to create recipe",
       error: error.message,
     });
   }
@@ -349,55 +352,53 @@ const createRecipe = async (req, res) => {
 
 
 // ===================== UPDATE RECIPE =====================
+// Update data
 const UpdateRecipe = async (req, res) => {
+  const { id } = req.params;
+  const { title, description, ingredients, instructions, cookingTime, images } = req.body;
+
   try {
-    const { id } = req.params;
-    const { title, description, ingredients, instructions, cookingTime } = req.body;
-
-    // find recipe
-    const recipe = await Recipemodel.findById(id);
-    if (!recipe) {
-      return res.status(404).json({ message: `Recipe ${id} not found` });
+    const result = await Recipemodel.findById(id);
+    if (!result) {
+      return res.status(404).json({
+        message: `recipe ${id} not found`,
+      });
     }
 
-    // upload new images (if any)
-    let uploadedImages = [];
-    if (req.files && req.files.length > 0) {
-      uploadedImages = await Promise.all(
-        req.files.map(
-          (file) =>
-            new Promise((resolve, reject) => {
-              const stream = cloudinary.uploader.upload_stream(
-                { folder: "recipes" },
-                (error, result) => {
-                  if (error) reject(error);
-                  else resolve({ img: result.secure_url });
-                }
-              );
-              stream.end(file.buffer);
-            })
-        )
+    // 🟢 handle ingredients
+    if (ingredients) {
+      if (Array.isArray(ingredients)) {
+        result.ingredients = ingredients;
+      } else if (typeof ingredients === "string") {
+        result.ingredients = ingredients.split(",").map((item) => item.trim());
+      }
+    }
+
+    // 🟢 handle images (optional)
+    if (images && Array.isArray(images)) {
+      const uploadedImages = await Promise.all(
+        images.map(async (image) => {
+          const result = await cloudinary.uploader.upload(image, {
+            folder: "products",
+            resource_type: "image",
+          });
+          return { img: result.secure_url };
+        })
       );
+      result.images = uploadedImages;
     }
 
-    // update fields
-    recipe.title = title || recipe.title;
-    recipe.description = description || recipe.description;
-    recipe.ingredients = ingredients || recipe.ingredients;
-    recipe.instructions = instructions || recipe.instructions;
-    recipe.cookingTime = cookingTime || recipe.cookingTime;
+    // other fields
+    result.title = title || result.title;
+    result.description = description || result.description;
+    result.instructions = instructions || result.instructions;
+    result.cookingTime = cookingTime || result.cookingTime;
 
-    // merge new images with old
-    if (uploadedImages.length > 0) {
-      recipe.images = [...recipe.images, ...uploadedImages];
-    }
-
-    await recipe.save();
-
-    res.status(200).json(recipe);
+    await result.save();
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
-      message: "Failed to update recipe",
+      message: "failed to update",
       error: error.message,
     });
   }
