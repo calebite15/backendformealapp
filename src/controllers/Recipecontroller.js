@@ -290,45 +290,53 @@
 //   createRecipe,
 // };
 
+const streamifier = require("streamifier");
 const Recipemodel = require("../models/Recipe");
 const cloudinary = require("../Utils/Cloudinary");
 
+// helper: upload single multer memory file (file.buffer) to cloudinary
+const uploadToCloudinary = (file) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { folder: "recipes" },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    streamifier.createReadStream(file.buffer).pipe(uploadStream);
+  });
+};
 
 // ===================== CREATE RECIPE =====================
-// Create data
 const createRecipe = async (req, res) => {
   const { title, ingredients, instructions, cookingTime, description } = req.body;
 
   try {
-    // check duplicate
+    console.log("createRecipe: files received:", req.files?.length || 0);
+
+    // duplicate check
     const projectExist = await Recipemodel.findOne({ title });
-    if (projectExist) {
-      return res.status(400).json({ message: "already created" });
-    }
+    if (projectExist) return res.status(400).json({ message: "already created" });
 
-    // ensure ingredients is array
+    // ingredients -> array
     let ingredientsArray = [];
-    if (Array.isArray(ingredients)) {
-      ingredientsArray = ingredients;
-    } else if (typeof ingredients === "string") {
+    if (Array.isArray(ingredients)) ingredientsArray = ingredients;
+    else if (typeof ingredients === "string")
       ingredientsArray = ingredients.split(",").map((i) => i.trim());
-    }
 
-    // upload files to Cloudinary
+    // upload files to Cloudinary (if any)
     let uploadedImages = [];
     if (req.files && req.files.length > 0) {
       uploadedImages = await Promise.all(
         req.files.map(async (file) => {
-          const result = await cloudinary.uploader.upload(file.path, {
-            folder: "recipes",
-          });
-          fs.unlinkSync(file.path); // remove local file after upload
+          const result = await uploadToCloudinary(file);
           return { img: result.secure_url };
         })
       );
     }
 
-    // save recipe
+    // create
     const createNewrecipe = await Recipemodel.create({
       title,
       description,
@@ -345,42 +353,41 @@ const createRecipe = async (req, res) => {
   }
 };
 
-
 // ===================== UPDATE RECIPE =====================
 const UpdateRecipe = async (req, res) => {
   const { id } = req.params;
   const { title, description, ingredients, instructions, cookingTime } = req.body;
 
   try {
+    console.log("updateRecipe: files received:", req.files?.length || 0);
+
     const recipe = await Recipemodel.findById(id);
-    if (!recipe) {
-      return res.status(404).json({ message: `Recipe ${id} not found` });
-    }
+    if (!recipe) return res.status(404).json({ message: `recipe ${id} not found` });
 
-    // 🟢 handle ingredients
+    // ingredients handling
     if (ingredients) {
-      if (Array.isArray(ingredients)) {
-        recipe.ingredients = ingredients;
-      } else if (typeof ingredients === "string") {
-        recipe.ingredients = ingredients.split(",").map((item) => item.trim());
-      }
+      if (Array.isArray(ingredients)) recipe.ingredients = ingredients;
+      else if (typeof ingredients === "string")
+        recipe.ingredients = ingredients.split(",").map((i) => i.trim());
     }
 
-    // 🟢 handle new image uploads (if files provided)
+    // if new files provided, upload and replace or append
     if (req.files && req.files.length > 0) {
       const uploadedImages = await Promise.all(
         req.files.map(async (file) => {
-          const result = await cloudinary.uploader.upload(file.path, {
-            folder: "recipes",
-          });
-          fs.unlinkSync(file.path); // remove local file after upload
+          const result = await uploadToCloudinary(file);
           return { img: result.secure_url };
         })
       );
-      recipe.images = uploadedImages; // replace old images with new ones
+
+      // CHOICE: Replace existing images with new ones (uncomment to replace)
+      recipe.images = uploadedImages;
+
+      // Or to append new images to existing ones, use:
+      // recipe.images = [...(recipe.images || []), ...uploadedImages];
     }
 
-    // 🟢 update other fields
+    // other fields
     recipe.title = title || recipe.title;
     recipe.description = description || recipe.description;
     recipe.instructions = instructions || recipe.instructions;
@@ -393,7 +400,6 @@ const UpdateRecipe = async (req, res) => {
     res.status(500).json({ message: "failed to update", error: error.message });
   }
 };
-
 
 
 // ===================== DELETE RECIPE =====================
