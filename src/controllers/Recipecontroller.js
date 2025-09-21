@@ -297,34 +297,32 @@ const cloudinary = require("../Utils/Cloudinary");
 // ===================== CREATE RECIPE =====================
 // Create data
 const createRecipe = async (req, res) => {
-  const { title, ingredients, images, instructions, cookingTime, description } = req.body;
+  const { title, ingredients, instructions, cookingTime, description } = req.body;
 
   try {
     // check duplicate
     const projectExist = await Recipemodel.findOne({ title });
     if (projectExist) {
-      return res.status(400).json({
-        message: "already created",
-      });
+      return res.status(400).json({ message: "already created" });
     }
 
-    // 🟢 ensure ingredients is always an array
+    // ensure ingredients is array
     let ingredientsArray = [];
     if (Array.isArray(ingredients)) {
       ingredientsArray = ingredients;
     } else if (typeof ingredients === "string") {
-      ingredientsArray = ingredients.split(",").map((item) => item.trim());
+      ingredientsArray = ingredients.split(",").map((i) => i.trim());
     }
 
-    // 🟢 ensure images is optional
+    // upload files to Cloudinary
     let uploadedImages = [];
-    if (images && Array.isArray(images)) {
+    if (req.files && req.files.length > 0) {
       uploadedImages = await Promise.all(
-        images.map(async (image) => {
-          const result = await cloudinary.uploader.upload(image, {
-            folder: "products",
-            resource_type: "image",
+        req.files.map(async (file) => {
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: "recipes",
           });
+          fs.unlinkSync(file.path); // remove local file after upload
           return { img: result.secure_url };
         })
       );
@@ -342,65 +340,57 @@ const createRecipe = async (req, res) => {
 
     res.status(201).json(createNewrecipe);
   } catch (error) {
-    res.status(500).json({
-      message: "failed to create recipe",
-      error: error.message,
-    });
+    console.error("❌ Recipe creation failed:", error);
+    res.status(500).json({ message: "failed to create recipe", error: error.message });
   }
 };
 
 
-
 // ===================== UPDATE RECIPE =====================
-// Update data
 const UpdateRecipe = async (req, res) => {
   const { id } = req.params;
-  const { title, description, ingredients, instructions, cookingTime, images } = req.body;
+  const { title, description, ingredients, instructions, cookingTime } = req.body;
 
   try {
-    const result = await Recipemodel.findById(id);
-    if (!result) {
-      return res.status(404).json({
-        message: `recipe ${id} not found`,
-      });
+    const recipe = await Recipemodel.findById(id);
+    if (!recipe) {
+      return res.status(404).json({ message: `Recipe ${id} not found` });
     }
 
     // 🟢 handle ingredients
     if (ingredients) {
       if (Array.isArray(ingredients)) {
-        result.ingredients = ingredients;
+        recipe.ingredients = ingredients;
       } else if (typeof ingredients === "string") {
-        result.ingredients = ingredients.split(",").map((item) => item.trim());
+        recipe.ingredients = ingredients.split(",").map((item) => item.trim());
       }
     }
 
-    // 🟢 handle images (optional)
-    if (images && Array.isArray(images)) {
+    // 🟢 handle new image uploads (if files provided)
+    if (req.files && req.files.length > 0) {
       const uploadedImages = await Promise.all(
-        images.map(async (image) => {
-          const result = await cloudinary.uploader.upload(image, {
-            folder: "products",
-            resource_type: "image",
+        req.files.map(async (file) => {
+          const result = await cloudinary.uploader.upload(file.path, {
+            folder: "recipes",
           });
+          fs.unlinkSync(file.path); // remove local file after upload
           return { img: result.secure_url };
         })
       );
-      result.images = uploadedImages;
+      recipe.images = uploadedImages; // replace old images with new ones
     }
 
-    // other fields
-    result.title = title || result.title;
-    result.description = description || result.description;
-    result.instructions = instructions || result.instructions;
-    result.cookingTime = cookingTime || result.cookingTime;
+    // 🟢 update other fields
+    recipe.title = title || recipe.title;
+    recipe.description = description || recipe.description;
+    recipe.instructions = instructions || recipe.instructions;
+    recipe.cookingTime = cookingTime || recipe.cookingTime;
 
-    await result.save();
-    res.status(200).json(result);
+    await recipe.save();
+    res.status(200).json(recipe);
   } catch (error) {
-    res.status(500).json({
-      message: "failed to update",
-      error: error.message,
-    });
+    console.error("❌ Recipe update failed:", error);
+    res.status(500).json({ message: "failed to update", error: error.message });
   }
 };
 
